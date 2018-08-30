@@ -8,6 +8,3 @@ target 'ObjectHash' do
     inherit! :search_paths
   end
 end
-
-
-

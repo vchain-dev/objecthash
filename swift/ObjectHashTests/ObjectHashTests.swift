@@ -1,11 +1,3 @@
-//
-//  ObjectHashTests.swift
-//  ObjectHashTests
-//
-//  Created by Denis Zenin on 08/08/2018.
-//  Copyright © 2018 VChain Technology Limited. All rights reserved.
-//
-
 @testable import ObjectHash
 
 import XCTest
