@@ -1,11 +1,3 @@
-//
-//  ObjectHashTests.swift
-//  ObjectHashTests
-//
-//  Created by Denis Zenin on 08/08/2018.
-//  Copyright © 2018 VChain Technology Limited. All rights reserved.
-//
-
 @testable import ObjectHash
 
 import XCTest
@@ -117,5 +109,21 @@ class ObjectHashTests: XCTestCase {
 
         XCTAssertNotEqual(objectHashString, redactedHashString)
         XCTAssertEqual(objectHashString, redactedHashStringCleaned)
+    }
+
+    func testBigInput() throws {
+        var start: Date
+
+        for i in 1..<5 {
+            start = Date()
+
+            let image = UIImage(named: "sloth\(i)")
+            let data = UIImagePNGRepresentation(image!)!.base64EncodedString()
+
+            var bigInput = "{\"data\":\"\(data)\"}"
+            let objectHashString = try ObjectHash.pythonJsonHash(json: bigInput).toString()
+
+            print("JSON string length: \(bigInput.count). Calculated in (s):", -start.timeIntervalSinceNow)
+        }
     }
 }

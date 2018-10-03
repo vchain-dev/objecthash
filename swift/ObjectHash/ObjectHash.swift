@@ -1,13 +1,11 @@
-import CryptoSwift
-
 public typealias Byte = UInt8
 public typealias BytesArray = [Byte]
 public typealias Object = [String: Any]
 
 public class ObjectHash {
     public internal(set) var hash: BytesArray = []
-    private var digester = SHA2(variant: .sha256)
-    
+    private var digester = Digester(algorithm: .sha256)
+
     public class func fromHex(hex: String) throws -> ObjectHash {
         let h = ObjectHash()
         var hex = hex.lowercased()
@@ -15,7 +13,7 @@ public class ObjectHash {
         if hex.count % 2 == 1 {
             hex = "0" + hex
         }
-        
+
         for idx in stride(from: hex.count, to: 0, by: -2) {
             let firstChar = hex[idx - 2]
             let secondChar = hex[idx - 1]
@@ -38,7 +36,7 @@ public class ObjectHash {
     public func toString() -> String {
         return convertToHex(hash)
     }
-    
+
     public class func fromBytes(hash: BytesArray) -> ObjectHash {
         let h = ObjectHash();
         h.hash = hash
@@ -152,10 +150,11 @@ public class ObjectHash {
 
         return normString
     }
-    
+
     private func hashTaggedBytes(tag: String, bytes: BytesArray) throws {
-        _ = try digester.update(withBytes: tag.toBytes() + bytes)
-        hash = try digester.finish()
+        let buffer = tag.toBytes() + bytes
+        _ = digester.update(buffer: buffer, byteCount: buffer.count)
+        hash = digester.final()
     }
 
     private func hashString(_ str: String) throws {
@@ -175,7 +174,7 @@ public class ObjectHash {
         let boolString = bool ? "1" : "0"
         try hashTaggedBytes(tag: "b", bytes: boolString.toBytes())
     }
-    
+
     private func hashAny(_ object: Any) throws {
         let outerType = getType(object)
 
@@ -193,15 +192,16 @@ public class ObjectHash {
 
     private func hashList(_ list: [Any]) throws {
         resetDigester()
-        _ = try digester.update(withBytes: "l".toBytes())
+        let buffer = "l".toBytes()
+        _ = digester.update(buffer: buffer, byteCount: buffer.count)
 
         for element in list {
             let innerObject = ObjectHash()
             try innerObject.hashAny(element)
-            _ = try digester.update(withBytes: innerObject.hash)
+            _ = digester.update(buffer: innerObject.hash, byteCount: innerObject.hash.count)
         }
 
-        hash = try digester.finish()
+        hash = digester.final()
     }
 
     private func hashObject(_ object: Object) throws {
@@ -215,11 +215,11 @@ public class ObjectHash {
             var buff: BytesArray = []
             let hKey = ObjectHash()
             try hKey.hashString(key)
-            
+
             guard let value = object[key] else {
                 throw ErrorObjectHash.missingValueInDictionary
             }
-            
+
             let hVal = ObjectHash()
             try hVal.hashAny(value)
 
@@ -231,13 +231,15 @@ public class ObjectHash {
 
         buffers.sort(by: <)
         resetDigester()
-        _ = try digester.update(withBytes: "d".toBytes())
+
+        let buffer = "d".toBytes()
+        _ = digester.update(buffer: buffer, byteCount: buffer.count)
 
         for buff in buffers {
-            _ = try digester.update(withBytes: buff)
+            _ = digester.update(buffer: buff, byteCount: buff.count)
         }
 
-        hash = try digester.finish()
+        hash = digester.final()
     }
 
     public class func pythonJsonHash(json: String) throws -> ObjectHash {
@@ -267,7 +269,7 @@ public class ObjectHash {
     }
 
     private func resetDigester() {
-        digester = SHA2(variant: .sha256)
+        digester = Digester(algorithm: .sha256)
     }
 
     private enum JsonType: String {
@@ -311,13 +313,13 @@ extension ObjectHash: Comparable {
 
 class Redacted: ObjectHash {
     public static let PREFIX = "**REDACTED**"
-    
+
     public class func fromString(_ representation: String) throws -> Redacted {
         let hexString = representation.replacingOccurrences(of: Redacted.PREFIX, with: "")
         let underlyingHash = try self.fromHex(hex: hexString)
         return Redacted(hash: underlyingHash.hash)
     }
-    
+
     init(hash: BytesArray) {
         super.init()
         self.hash = hash
@@ -325,10 +327,10 @@ class Redacted: ObjectHash {
 
     override class func pythonJsonHash(json: String) throws -> Redacted {
         let hash = try ObjectHash.pythonJsonHash(json: json).hash
-        
+
         return Redacted(hash: hash)
     }
-    
+
     override public func toString() -> String {
         return "\(Redacted.PREFIX)\(super.toString())"
     }
